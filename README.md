@@ -106,6 +106,71 @@ Frontend:
 
 - http://localhost:5173
 
+## Publicacao gratuita
+
+Arquitetura recomendada:
+
+- Banco MySQL: Aiven
+- Backend Spring Boot: Render
+- Frontend Vue: Cloudflare Pages
+- Codigo: GitHub
+
+### 1. Banco MySQL na Aiven
+
+Crie um servico MySQL gratuito na Aiven e copie os dados de conexao.
+No Render, o backend usara estes valores:
+
+```text
+SPRING_PROFILES_ACTIVE=mysql
+MYSQL_DATABASE_URL=jdbc:mysql://HOST:PORT/defaultdb?sslMode=REQUIRED&serverTimezone=UTC
+MYSQL_USER=avnadmin
+MYSQL_PASSWORD=SENHA_DA_AIVEN
+JWT_SECRET=UMA_CHAVE_GRANDE_E_ALEATORIA
+CORS_ALLOWED_ORIGINS=https://SEU_FRONTEND.pages.dev
+```
+
+### 2. Backend no Render
+
+Crie um Web Service conectado ao GitHub:
+
+```text
+Root Directory: backend
+Runtime: Docker
+Dockerfile Path: ./Dockerfile
+```
+
+Configure as variaveis de ambiente acima. Depois do deploy, o backend ficara em
+uma URL parecida com:
+
+```text
+https://supergestor-api.onrender.com/api
+```
+
+### 3. Frontend na Cloudflare Pages
+
+Crie um projeto Pages conectado ao mesmo repositorio:
+
+```text
+Root Directory: frontend
+Build command: npm run build
+Build output directory: dist
+```
+
+Configure a variavel:
+
+```text
+VITE_API_URL=https://SEU_BACKEND.onrender.com/api
+```
+
+Depois que a Cloudflare gerar a URL do frontend, volte no Render e atualize:
+
+```text
+CORS_ALLOWED_ORIGINS=https://SEU_FRONTEND.pages.dev
+```
+
+Importante: antes de expor publicamente, troque as senhas dos usuarios de
+demonstracao ou crie um usuario administrador novo.
+
 ## Modulos iniciais
 
 - Dashboard gerencial

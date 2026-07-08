@@ -1,0 +1,29 @@
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.agents/
+.codex/
+
+# Logs and local process markers
+*.log
+*.pid
+*.started
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+
+# Java/Gradle
+backend/.gradle/
+backend/build/
+
+# Vue/Vite
+frontend/node_modules/
+frontend/dist/

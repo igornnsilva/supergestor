@@ -18,10 +18,19 @@ async function submit() {
   loading.value = true
   error.value = ''
   try {
-    await auth.login(form)
+    await auth.login({
+      email: form.email.trim(),
+      senha: form.senha
+    })
     router.push('/')
   } catch (exception) {
-    error.value = exception.response?.data?.detail ?? 'Email ou senha invalidos.'
+    if (exception.code === 'ECONNABORTED') {
+      error.value = 'O servidor demorou para responder. Aguarde alguns segundos e tente novamente.'
+    } else if (!exception.response) {
+      error.value = 'Nao foi possivel conectar ao servidor. Tente novamente em instantes.'
+    } else {
+      error.value = exception.response?.data?.detail ?? 'Email ou senha invalidos.'
+    }
   } finally {
     loading.value = false
   }

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { Plus, Trash2 } from '@lucide/vue'
+import { Plus, Trash2, WalletCards } from '@lucide/vue'
 import { cadastroApi, produtoApi, vendaApi } from '../services/api'
 import { useNotificationsStore } from '../stores/notifications'
 import { useAuthStore } from '../stores/auth'
@@ -11,14 +11,22 @@ const produtos = ref([])
 const clientes = ref([])
 const vendas = ref([])
 const itens = ref([])
+const pagamentos = ref([])
+let pagamentoSequence = 0
 
 const form = reactive({
   produtoId: '',
   quantidade: 1,
   clienteId: '',
-  formaPagamento: 'PIX',
-  desconto: 0
+  desconto: '0'
 })
+
+const formasPagamento = [
+  { value: 'PIX', label: 'PIX' },
+  { value: 'DINHEIRO', label: 'Dinheiro' },
+  { value: 'CARTAO_CREDITO', label: 'Cartao de credito' },
+  { value: 'CARTAO_DEBITO', label: 'Cartao de debito' }
+]
 
 const money = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -29,7 +37,56 @@ const subtotal = computed(() =>
   itens.value.reduce((sum, item) => sum + item.produto.precoVenda * item.quantidade, 0)
 )
 
-const total = computed(() => Math.max(0, subtotal.value - Number(form.desconto || 0)))
+const total = computed(() => Math.max(0, subtotal.value - parseDecimal(form.desconto)))
+
+const totalPagamentos = computed(() =>
+  pagamentos.value.reduce((sum, pagamento) => sum + parseDecimal(pagamento.valor), 0)
+)
+
+const saldoPagamento = computed(() => roundMoney(total.value - totalPagamentos.value))
+
+const pagamentosValidos = computed(() =>
+  itens.value.length > 0 &&
+  pagamentos.value.length > 0 &&
+  pagamentos.value.every((pagamento) => pagamento.formaPagamento && parseDecimal(pagamento.valor) > 0) &&
+  Math.abs(saldoPagamento.value) < 0.005
+)
+
+function parseDecimal(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0
+  }
+
+  const raw = String(value ?? '').trim().replace(/\s/g, '')
+  if (!raw) {
+    return 0
+  }
+
+  const lastComma = raw.lastIndexOf(',')
+  const lastDot = raw.lastIndexOf('.')
+  let normalized = raw
+
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? ',' : '.'
+    const thousandsSeparator = decimalSeparator === ',' ? '.' : ','
+    normalized = raw
+      .replaceAll(thousandsSeparator, '')
+      .replace(decimalSeparator, '.')
+  } else {
+    normalized = raw.replace(',', '.')
+  }
+
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function roundMoney(value) {
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100
+}
+
+function toMoneyInput(value) {
+  return roundMoney(value).toFixed(2).replace('.', ',')
+}
 
 function adicionarItem() {
   const produto = produtos.value.find((item) => item.id === Number(form.produtoId))
@@ -43,26 +100,79 @@ function adicionarItem() {
     itens.value.push({ produto, quantidade: Number(form.quantidade) })
   }
   form.quantidade = 1
+  if (pagamentos.value.length === 1 && !pagamentos.value[0].valor) {
+    completarPagamento(pagamentos.value[0])
+  }
 }
 
 function removerItem(produtoId) {
   itens.value = itens.value.filter((item) => item.produto.id !== produtoId)
 }
 
+function criarPagamento(valor = '') {
+  pagamentoSequence += 1
+  return {
+    id: pagamentoSequence,
+    formaPagamento: 'PIX',
+    valor
+  }
+}
+
+function adicionarPagamento() {
+  pagamentos.value.push(criarPagamento(saldoPagamento.value > 0 ? toMoneyInput(saldoPagamento.value) : ''))
+}
+
+function removerPagamento(id) {
+  pagamentos.value = pagamentos.value.filter((pagamento) => pagamento.id !== id)
+}
+
+function completarPagamento(pagamento) {
+  const outrosPagamentos = pagamentos.value
+    .filter((item) => item.id !== pagamento.id)
+    .reduce((sum, item) => sum + parseDecimal(item.valor), 0)
+  const restante = roundMoney(total.value - outrosPagamentos)
+  pagamento.valor = restante > 0 ? toMoneyInput(restante) : ''
+}
+
+function resetarPagamentos() {
+  pagamentos.value = [criarPagamento()]
+}
+
+function descreverPagamento(venda) {
+  if (venda.pagamentos?.length) {
+    return venda.pagamentos
+      .map((pagamento) => `${pagamento.formaPagamento}: ${money.format(pagamento.valor)}`)
+      .join(' + ')
+  }
+  return venda.formaPagamento
+}
+
 async function finalizarVenda() {
+  if (!pagamentosValidos.value) {
+    notifications.show('A soma dos pagamentos precisa ser igual ao total da venda.', 'error')
+    return
+  }
+
+  const pagamentosNormalizados = pagamentos.value.map((pagamento) => ({
+    formaPagamento: pagamento.formaPagamento,
+    valor: roundMoney(parseDecimal(pagamento.valor))
+  }))
+
   try {
     await vendaApi.criar({
       clienteId: form.clienteId ? Number(form.clienteId) : null,
       usuarioId: Number(auth.user.id),
-      formaPagamento: form.formaPagamento,
-      desconto: Number(form.desconto || 0),
+      formaPagamento: pagamentosNormalizados.length === 1 ? pagamentosNormalizados[0].formaPagamento : 'MISTO',
+      desconto: roundMoney(parseDecimal(form.desconto)),
+      pagamentos: pagamentosNormalizados,
       itens: itens.value.map((item) => ({
         produtoId: item.produto.id,
         quantidade: item.quantidade
       }))
     })
     itens.value = []
-    form.desconto = 0
+    form.desconto = '0'
+    resetarPagamentos()
     notifications.show('Venda finalizada e estoque atualizado.')
     await carregar()
   } catch (error) {
@@ -93,6 +203,9 @@ async function carregar() {
 
   form.produtoId = produtos.value[0]?.id ?? ''
   form.clienteId = clientes.value[0]?.id ?? ''
+  if (!pagamentos.value.length) {
+    resetarPagamentos()
+  }
 }
 
 onMounted(carregar)
@@ -153,26 +266,62 @@ onMounted(carregar)
 
         <div class="form-row">
           <label>
-            Pagamento
-            <select v-model="form.formaPagamento">
-              <option>PIX</option>
-              <option>DINHEIRO</option>
-              <option>CARTAO_CREDITO</option>
-              <option>CARTAO_DEBITO</option>
-            </select>
-          </label>
-          <label>
             Desconto
-            <input v-model="form.desconto" min="0" step="0.01" type="number" />
+            <input v-model="form.desconto" inputmode="decimal" placeholder="0,00" type="text" />
           </label>
         </div>
+
+        <section class="payment-box">
+          <div class="toolbar compact">
+            <h3>Pagamentos</h3>
+            <button class="button secondary" type="button" @click="adicionarPagamento">
+              <Plus :size="17" />
+              Adicionar pagamento
+            </button>
+          </div>
+
+          <div class="payment-list">
+            <div v-for="pagamento in pagamentos" :key="pagamento.id" class="payment-line">
+              <label>
+                Forma
+                <select v-model="pagamento.formaPagamento">
+                  <option v-for="forma in formasPagamento" :key="forma.value" :value="forma.value">
+                    {{ forma.label }}
+                  </option>
+                </select>
+              </label>
+              <label>
+                Valor
+                <input v-model="pagamento.valor" inputmode="decimal" placeholder="0,00" type="text" />
+              </label>
+              <button class="button secondary" type="button" @click="completarPagamento(pagamento)">
+                <WalletCards :size="17" />
+                Restante
+              </button>
+              <button
+                class="button danger icon-only"
+                type="button"
+                @click="removerPagamento(pagamento.id)"
+                aria-label="Remover pagamento"
+              >
+                <Trash2 :size="17" />
+              </button>
+            </div>
+            <p v-if="!pagamentos.length" class="empty-state">Adicione ao menos uma forma de pagamento.</p>
+          </div>
+        </section>
 
         <div class="totals">
           <div><span>Subtotal</span><strong>{{ money.format(subtotal) }}</strong></div>
           <div><span>Total</span><strong>{{ money.format(total) }}</strong></div>
+          <div><span>Pago</span><strong>{{ money.format(totalPagamentos) }}</strong></div>
+          <div :class="{ warning: Math.abs(saldoPagamento) >= 0.005 }">
+            <span>{{ saldoPagamento >= 0 ? 'Falta' : 'Excedente' }}</span>
+            <strong>{{ money.format(Math.abs(saldoPagamento)) }}</strong>
+          </div>
         </div>
 
-        <button class="button" type="button" :disabled="!itens.length" @click="finalizarVenda">
+        <button class="button" type="button" :disabled="!pagamentosValidos" @click="finalizarVenda">
           Finalizar venda
         </button>
       </div>
@@ -196,7 +345,7 @@ onMounted(carregar)
           <tbody>
             <tr v-for="venda in vendas" :key="venda.id">
               <td>#{{ venda.id }}</td>
-              <td>{{ venda.formaPagamento }}</td>
+              <td>{{ descreverPagamento(venda) }}</td>
               <td>{{ venda.itens.length }}</td>
               <td>{{ money.format(venda.total) }}</td>
             </tr>

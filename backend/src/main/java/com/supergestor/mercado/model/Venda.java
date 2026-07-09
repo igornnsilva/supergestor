@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderColumn;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -36,6 +37,10 @@ public class Venda {
     @OneToMany(mappedBy = "venda", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ItemVenda> itens = new ArrayList<>();
 
+    @OneToMany(mappedBy = "venda", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderColumn(name = "ordem")
+    private List<PagamentoVenda> pagamentos = new ArrayList<>();
+
     private BigDecimal subtotal = BigDecimal.ZERO;
     private BigDecimal desconto = BigDecimal.ZERO;
     private BigDecimal total = BigDecimal.ZERO;
@@ -60,6 +65,11 @@ public class Venda {
         item.setVenda(this);
         itens.add(item);
         recalcularTotais();
+    }
+
+    public void adicionarPagamento(PagamentoVenda pagamento) {
+        pagamento.setVenda(this);
+        pagamentos.add(pagamento);
     }
 
     public void recalcularTotais() {
@@ -92,6 +102,10 @@ public class Venda {
         return itens;
     }
 
+    public List<PagamentoVenda> getPagamentos() {
+        return pagamentos;
+    }
+
     public BigDecimal getSubtotal() {
         return subtotal;
     }
@@ -112,8 +126,11 @@ public class Venda {
         return formaPagamento;
     }
 
+    public void setFormaPagamento(FormaPagamento formaPagamento) {
+        this.formaPagamento = formaPagamento;
+    }
+
     public StatusVenda getStatus() {
         return status;
     }
 }
-

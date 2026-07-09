@@ -17,6 +17,7 @@ public interface VendaRepository extends JpaRepository<Venda, Long> {
     @EntityGraph(attributePaths = {
         "cliente",
         "usuario",
+        "pagamentos",
         "itens",
         "itens.produto",
         "itens.produto.categoria",
@@ -28,6 +29,7 @@ public interface VendaRepository extends JpaRepository<Venda, Long> {
     @EntityGraph(attributePaths = {
         "cliente",
         "usuario",
+        "pagamentos",
         "itens",
         "itens.produto",
         "itens.produto.categoria",

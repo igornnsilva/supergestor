@@ -1,10 +1,13 @@
 package com.supergestor.mercado.service;
 
+import com.supergestor.mercado.dto.PagamentoVendaRequest;
 import com.supergestor.mercado.dto.VendaItemRequest;
 import com.supergestor.mercado.dto.VendaRequest;
 import com.supergestor.mercado.model.Cliente;
+import com.supergestor.mercado.model.FormaPagamento;
 import com.supergestor.mercado.model.ItemVenda;
 import com.supergestor.mercado.model.MovimentacaoEstoque;
+import com.supergestor.mercado.model.PagamentoVenda;
 import com.supergestor.mercado.model.Produto;
 import com.supergestor.mercado.model.TipoMovimentacao;
 import com.supergestor.mercado.model.Usuario;
@@ -19,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Service
@@ -85,11 +89,50 @@ public class VendaService {
         }
 
         venda.recalcularTotais();
+        registrarPagamentos(venda, request);
         Venda vendaSalva = vendaRepository.save(venda);
         if (cliente != null) {
             cliente.setPontosFidelidade(cliente.getPontosFidelidade() + vendaSalva.getTotal().intValue());
         }
         return vendaSalva;
     }
-}
 
+    private void registrarPagamentos(Venda venda, VendaRequest request) {
+        BigDecimal total = normalizarMoeda(venda.getTotal());
+        List<PagamentoVendaRequest> pagamentos = request.pagamentos() == null ? List.of() : request.pagamentos();
+
+        if (total.signum() == 0) {
+            venda.setFormaPagamento(request.formaPagamento());
+            return;
+        }
+
+        if (pagamentos.isEmpty()) {
+            if (request.formaPagamento() == null) {
+                throw new IllegalArgumentException("Informe ao menos uma forma de pagamento.");
+            }
+            venda.setFormaPagamento(request.formaPagamento());
+            venda.adicionarPagamento(new PagamentoVenda(request.formaPagamento(), total));
+            return;
+        }
+
+        BigDecimal somaPagamentos = BigDecimal.ZERO;
+        for (var pagamentoRequest : pagamentos) {
+            BigDecimal valor = normalizarMoeda(pagamentoRequest.valor());
+            if (valor.signum() <= 0) {
+                throw new IllegalArgumentException("Valor do pagamento deve ser maior que zero.");
+            }
+            somaPagamentos = somaPagamentos.add(valor);
+            venda.adicionarPagamento(new PagamentoVenda(pagamentoRequest.formaPagamento(), valor));
+        }
+
+        if (somaPagamentos.compareTo(total) != 0) {
+            throw new IllegalArgumentException("A soma dos pagamentos deve ser igual ao total da venda.");
+        }
+
+        venda.setFormaPagamento(pagamentos.size() == 1 ? pagamentos.get(0).formaPagamento() : FormaPagamento.MISTO);
+    }
+
+    private BigDecimal normalizarMoeda(BigDecimal valor) {
+        return valor == null ? BigDecimal.ZERO : valor.setScale(2, RoundingMode.HALF_UP);
+    }
+}

@@ -3,10 +3,12 @@ package com.supergestor.mercado;
 import com.supergestor.mercado.dto.LoginRequest;
 import com.supergestor.mercado.dto.LoginResponse;
 import com.supergestor.mercado.dto.PagamentoVendaRequest;
+import com.supergestor.mercado.dto.ProdutoRequest;
 import com.supergestor.mercado.dto.VendaItemRequest;
 import com.supergestor.mercado.dto.VendaRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.supergestor.mercado.model.FormaPagamento;
+import com.supergestor.mercado.model.UnidadeMedida;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,6 +23,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.supergestor.mercado.repository.ProdutoRepository;
+import com.supergestor.mercado.repository.CategoriaRepository;
+import com.supergestor.mercado.repository.FornecedorRepository;
 import com.supergestor.mercado.repository.UsuarioRepository;
 
 import java.math.BigDecimal;
@@ -43,6 +47,12 @@ class AuthIntegrationTests {
 
     @Autowired
     private ProdutoRepository produtoRepository;
+
+    @Autowired
+    private CategoriaRepository categoriaRepository;
+
+    @Autowired
+    private FornecedorRepository fornecedorRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -175,6 +185,99 @@ class AuthIntegrationTests {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).contains("A soma dos pagamentos deve ser igual ao total da venda.");
+    }
+
+    @Test
+    void produtoPodeSerEditadoEExcluidoQuandoNaoTemHistorico() throws Exception {
+        String token = loginAdmin().token();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        var categoria = categoriaRepository.findAll().get(0);
+        var fornecedor = fornecedorRepository.findAll().get(0);
+
+        ProdutoRequest criacao = new ProdutoRequest(
+            "9000000000001",
+            "Produto Temporario",
+            "Teste",
+            categoria.getId(),
+            fornecedor.getId(),
+            new BigDecimal("2.50"),
+            new BigDecimal("5.00"),
+            UnidadeMedida.UNIDADE,
+            new BigDecimal("4"),
+            new BigDecimal("1"),
+            true
+        );
+
+        ResponseEntity<String> criado = restTemplate.postForEntity(
+            "http://localhost:" + port + "/api/produtos",
+            new HttpEntity<>(criacao, headers),
+            String.class
+        );
+
+        assertThat(criado.getStatusCode())
+            .as("body: " + criado.getBody())
+            .isEqualTo(HttpStatus.OK);
+        Long produtoId = objectMapper.readTree(criado.getBody()).get("id").asLong();
+
+        ProdutoRequest edicao = new ProdutoRequest(
+            "9000000000001",
+            "Produto Temporario Editado",
+            "Teste",
+            categoria.getId(),
+            fornecedor.getId(),
+            new BigDecimal("3.00"),
+            new BigDecimal("6.75"),
+            UnidadeMedida.UNIDADE,
+            new BigDecimal("8"),
+            new BigDecimal("2"),
+            true
+        );
+
+        ResponseEntity<String> atualizado = restTemplate.exchange(
+            "http://localhost:" + port + "/api/produtos/" + produtoId,
+            org.springframework.http.HttpMethod.PUT,
+            new HttpEntity<>(edicao, headers),
+            String.class
+        );
+
+        assertThat(atualizado.getStatusCode())
+            .as("body: " + atualizado.getBody())
+            .isEqualTo(HttpStatus.OK);
+        assertThat(produtoRepository.findById(produtoId).orElseThrow().getNome())
+            .isEqualTo("Produto Temporario Editado");
+
+        ResponseEntity<String> excluido = restTemplate.exchange(
+            "http://localhost:" + port + "/api/produtos/" + produtoId,
+            org.springframework.http.HttpMethod.DELETE,
+            new HttpEntity<>(headers),
+            String.class
+        );
+
+        assertThat(excluido.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(produtoRepository.existsById(produtoId)).isFalse();
+    }
+
+    @Test
+    void produtoComVendaNaoPodeSerExcluidoParaPreservarHistorico() throws Exception {
+        String token = loginAdmin().token();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        var produtoVendido = produtoRepository.findAll().stream()
+            .filter(produto -> produto.getCodigoBarras().equals("7891000000011"))
+            .findFirst()
+            .orElseThrow();
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            "http://localhost:" + port + "/api/produtos/" + produtoVendido.getId(),
+            org.springframework.http.HttpMethod.DELETE,
+            new HttpEntity<>(headers),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("Produto possui vendas registradas");
+        assertThat(produtoRepository.existsById(produtoVendido.getId())).isTrue();
     }
 
     private LoginResponse loginAdmin() throws Exception {

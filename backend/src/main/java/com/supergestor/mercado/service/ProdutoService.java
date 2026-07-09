@@ -6,6 +6,8 @@ import com.supergestor.mercado.model.Fornecedor;
 import com.supergestor.mercado.model.Produto;
 import com.supergestor.mercado.repository.CategoriaRepository;
 import com.supergestor.mercado.repository.FornecedorRepository;
+import com.supergestor.mercado.repository.ItemVendaRepository;
+import com.supergestor.mercado.repository.MovimentacaoEstoqueRepository;
 import com.supergestor.mercado.repository.ProdutoRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
@@ -18,12 +20,17 @@ public class ProdutoService {
     private final ProdutoRepository produtoRepository;
     private final CategoriaRepository categoriaRepository;
     private final FornecedorRepository fornecedorRepository;
+    private final ItemVendaRepository itemVendaRepository;
+    private final MovimentacaoEstoqueRepository movimentacaoEstoqueRepository;
 
     public ProdutoService(ProdutoRepository produtoRepository, CategoriaRepository categoriaRepository,
-                          FornecedorRepository fornecedorRepository) {
+                          FornecedorRepository fornecedorRepository, ItemVendaRepository itemVendaRepository,
+                          MovimentacaoEstoqueRepository movimentacaoEstoqueRepository) {
         this.produtoRepository = produtoRepository;
         this.categoriaRepository = categoriaRepository;
         this.fornecedorRepository = fornecedorRepository;
+        this.itemVendaRepository = itemVendaRepository;
+        this.movimentacaoEstoqueRepository = movimentacaoEstoqueRepository;
     }
 
     public List<Produto> listar(String busca) {
@@ -80,5 +87,15 @@ public class ProdutoService {
         produto.setAtivo(request.ativo());
         return produtoRepository.save(produto);
     }
-}
 
+    public void excluir(Long id) {
+        Produto produto = buscar(id);
+        if (itemVendaRepository.existsByProdutoId(id)) {
+            throw new IllegalArgumentException("Produto possui vendas registradas e nao pode ser excluido sem quebrar o historico.");
+        }
+        if (movimentacaoEstoqueRepository.existsByProdutoId(id)) {
+            throw new IllegalArgumentException("Produto possui movimentacoes de estoque e nao pode ser excluido sem quebrar o historico.");
+        }
+        produtoRepository.delete(produto);
+    }
+}

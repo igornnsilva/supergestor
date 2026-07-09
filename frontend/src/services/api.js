@@ -35,7 +35,9 @@ export const dashboardApi = {
 
 export const produtoApi = {
   listar: (busca = '') => api.get('/produtos', { params: { busca } }).then((response) => response.data),
-  criar: (payload) => api.post('/produtos', payload).then((response) => response.data)
+  criar: (payload) => api.post('/produtos', payload).then((response) => response.data),
+  atualizar: (id, payload) => api.put(`/produtos/${id}`, payload).then((response) => response.data),
+  excluir: (id) => api.delete(`/produtos/${id}`)
 }
 
 export const cadastroApi = {

@@ -150,6 +150,11 @@ h1 {
   color: #243443;
 }
 
+.icon-button.danger-icon {
+  background: #f1e4df;
+  color: #9a321f;
+}
+
 .grid {
   display: grid;
   gap: 16px;
@@ -215,6 +220,12 @@ h1 {
   overflow-x: auto;
 }
 
+.table-actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -249,6 +260,18 @@ label {
   color: #42534a;
   font-size: 0.9rem;
   font-weight: 700;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.check-row input {
+  width: 18px;
+  min-height: 18px;
+  padding: 0;
 }
 
 .button {

@@ -68,6 +68,7 @@ public class VendaService {
         Venda venda = new Venda(cliente, usuario, request.formaPagamento(), desconto);
 
         for (VendaItemRequest itemRequest : request.itens()) {
+            validarQuantidadeInteira(itemRequest.quantidade());
             Produto produto = produtoRepository.findById(itemRequest.produtoId())
                 .orElseThrow(() -> new EntityNotFoundException("Produto nao encontrado: " + itemRequest.produtoId()));
 
@@ -134,5 +135,11 @@ public class VendaService {
 
     private BigDecimal normalizarMoeda(BigDecimal valor) {
         return valor == null ? BigDecimal.ZERO : valor.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private void validarQuantidadeInteira(BigDecimal quantidade) {
+        if (quantidade == null || quantidade.signum() <= 0 || quantidade.stripTrailingZeros().scale() > 0) {
+            throw new IllegalArgumentException("Quantidade da venda deve ser um numero inteiro maior que zero.");
+        }
     }
 }

@@ -137,7 +137,7 @@ class AuthIntegrationTests {
                 new VendaRequest(
                     null,
                     usuario.getId(),
-                    FormaPagamento.MISTO,
+                    FormaPagamento.DINHEIRO,
                     BigDecimal.ZERO,
                     List.of(new VendaItemRequest(produto.getId(), BigDecimal.ONE)),
                     List.of(
@@ -157,6 +157,34 @@ class AuthIntegrationTests {
         assertThat(response.getBody()).contains("\"pagamentos\"");
         assertThat(response.getBody()).contains("\"formaPagamento\":\"DINHEIRO\"");
         assertThat(response.getBody()).contains("\"formaPagamento\":\"PIX\"");
+    }
+
+    @Test
+    void vendaRejeitaQuantidadeDecimal() throws Exception {
+        String token = loginAdmin().token();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        var produto = produtoRepository.findAll().get(0);
+        var usuario = usuarioRepository.findByEmailIgnoreCase("admin@supergestor.local").orElseThrow();
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+            "http://localhost:" + port + "/api/vendas",
+            new HttpEntity<>(
+                new VendaRequest(
+                    null,
+                    usuario.getId(),
+                    FormaPagamento.PIX,
+                    BigDecimal.ZERO,
+                    List.of(new VendaItemRequest(produto.getId(), new BigDecimal("1.5"))),
+                    List.of(new PagamentoVendaRequest(FormaPagamento.PIX, produto.getPrecoVenda()))
+                ),
+                headers
+            ),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("Quantidade da venda deve ser um numero inteiro maior que zero.");
     }
 
     @Test

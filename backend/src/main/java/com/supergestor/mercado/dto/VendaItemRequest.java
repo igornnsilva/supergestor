@@ -7,7 +7,6 @@ import java.math.BigDecimal;
 
 public record VendaItemRequest(
     @NotNull Long produtoId,
-    @NotNull @DecimalMin("0.01") BigDecimal quantidade
+    @NotNull @DecimalMin("1") BigDecimal quantidade
 ) {
 }
-

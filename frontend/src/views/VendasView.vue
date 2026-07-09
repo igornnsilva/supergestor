@@ -88,16 +88,37 @@ function toMoneyInput(value) {
   return roundMoney(value).toFixed(2).replace('.', ',')
 }
 
+function sanitizeIntegerInput(value) {
+  return String(value ?? '').replace(/\D/g, '')
+}
+
+function atualizarQuantidade(event) {
+  const sanitized = sanitizeIntegerInput(event.target.value)
+  form.quantidade = sanitized ? Number(sanitized) : ''
+}
+
+function bloquearQuantidadeDecimal(event) {
+  if (['.', ',', 'e', 'E', '+', '-'].includes(event.key)) {
+    event.preventDefault()
+  }
+}
+
 function adicionarItem() {
   const produto = produtos.value.find((item) => item.id === Number(form.produtoId))
+  const quantidade = Number(form.quantidade)
   if (!produto) {
+    return
+  }
+  if (!Number.isInteger(quantidade) || quantidade <= 0) {
+    notifications.show('Informe uma quantidade inteira maior que zero.', 'error')
+    form.quantidade = 1
     return
   }
   const existente = itens.value.find((item) => item.produto.id === produto.id)
   if (existente) {
-    existente.quantidade += Number(form.quantidade)
+    existente.quantidade += quantidade
   } else {
-    itens.value.push({ produto, quantidade: Number(form.quantidade) })
+    itens.value.push({ produto, quantidade })
   }
   form.quantidade = 1
   if (pagamentos.value.length === 1 && !pagamentos.value[0].valor) {
@@ -119,6 +140,17 @@ function criarPagamento(valor = '') {
 }
 
 function adicionarPagamento() {
+  if (
+    pagamentos.value.length === 1 &&
+    total.value > 0 &&
+    roundMoney(totalPagamentos.value) === roundMoney(total.value)
+  ) {
+    const primeiraParcela = roundMoney(total.value / 2)
+    pagamentos.value[0].valor = toMoneyInput(primeiraParcela)
+    pagamentos.value.push(criarPagamento(toMoneyInput(total.value - primeiraParcela)))
+    return
+  }
+
   pagamentos.value.push(criarPagamento(saldoPagamento.value > 0 ? toMoneyInput(saldoPagamento.value) : ''))
 }
 
@@ -162,7 +194,7 @@ async function finalizarVenda() {
     await vendaApi.criar({
       clienteId: form.clienteId ? Number(form.clienteId) : null,
       usuarioId: Number(auth.user.id),
-      formaPagamento: pagamentosNormalizados.length === 1 ? pagamentosNormalizados[0].formaPagamento : 'MISTO',
+      formaPagamento: pagamentosNormalizados[0].formaPagamento,
       desconto: roundMoney(parseDecimal(form.desconto)),
       pagamentos: pagamentosNormalizados,
       itens: itens.value.map((item) => ({
@@ -227,7 +259,15 @@ onMounted(carregar)
           </label>
           <label>
             Quantidade
-            <input v-model="form.quantidade" min="0.01" step="0.01" type="number" />
+            <input
+              :value="form.quantidade"
+              inputmode="numeric"
+              min="1"
+              pattern="[0-9]*"
+              type="text"
+              @input="atualizarQuantidade"
+              @keydown="bloquearQuantidadeDecimal"
+            />
           </label>
           <button class="button secondary" type="button" @click="adicionarItem">
             <Plus :size="17" />

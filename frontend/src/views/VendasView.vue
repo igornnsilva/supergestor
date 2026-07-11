@@ -1,9 +1,10 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { Plus, Trash2, WalletCards } from '@lucide/vue'
+import { Eye, Plus, Trash2, WalletCards } from '@lucide/vue'
 import { cadastroApi, produtoApi, vendaApi } from '../services/api'
 import { useNotificationsStore } from '../stores/notifications'
 import { useAuthStore } from '../stores/auth'
+import VendaDetalhesModal from '../components/VendaDetalhesModal.vue'
 
 const notifications = useNotificationsStore()
 const auth = useAuthStore()
@@ -12,6 +13,7 @@ const clientes = ref([])
 const vendas = ref([])
 const itens = ref([])
 const pagamentos = ref([])
+const vendaSelecionada = ref(null)
 let pagamentoSequence = 0
 
 const form = reactive({
@@ -177,6 +179,14 @@ function descreverPagamento(venda) {
       .join(' + ')
   }
   return venda.formaPagamento
+}
+
+function abrirDetalhes(venda) {
+  vendaSelecionada.value = venda
+}
+
+function fecharDetalhes() {
+  vendaSelecionada.value = null
 }
 
 async function finalizarVenda() {
@@ -380,6 +390,7 @@ onMounted(carregar)
               <th>Pagamento</th>
               <th>Itens</th>
               <th>Total</th>
+              <th>Detalhes</th>
             </tr>
           </thead>
           <tbody>
@@ -388,10 +399,17 @@ onMounted(carregar)
               <td>{{ descreverPagamento(venda) }}</td>
               <td>{{ venda.itens.length }}</td>
               <td>{{ money.format(venda.total) }}</td>
+              <td>
+                <button class="icon-button" type="button" @click="abrirDetalhes(venda)" aria-label="Ver detalhes da venda">
+                  <Eye :size="17" />
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
     </article>
   </section>
+
+  <VendaDetalhesModal v-if="vendaSelecionada" :venda="vendaSelecionada" @close="fecharDetalhes" />
 </template>

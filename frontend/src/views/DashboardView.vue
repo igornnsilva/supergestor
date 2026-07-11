@@ -1,12 +1,14 @@
 <script setup>
 import { onMounted, ref } from 'vue'
-import { AlertTriangle, BadgeDollarSign, Package, ShoppingBag, Users } from '@lucide/vue'
+import { AlertTriangle, BadgeDollarSign, Eye, Package, ShoppingBag, Users } from '@lucide/vue'
 import { dashboardApi, estoqueApi, vendaApi } from '../services/api'
+import VendaDetalhesModal from '../components/VendaDetalhesModal.vue'
 
 const resumo = ref(null)
 const estoqueBaixo = ref([])
 const vendas = ref([])
 const loading = ref(true)
+const vendaSelecionada = ref(null)
 
 const money = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -24,6 +26,23 @@ onMounted(async () => {
   vendas.value = vendasData.slice(-5).reverse()
   loading.value = false
 })
+
+function descreverPagamento(venda) {
+  if (venda.pagamentos?.length) {
+    return venda.pagamentos
+      .map((pagamento) => `${pagamento.formaPagamento}: ${money.format(pagamento.valor)}`)
+      .join(' + ')
+  }
+  return venda.formaPagamento
+}
+
+function abrirDetalhes(venda) {
+  vendaSelecionada.value = venda
+}
+
+function fecharDetalhes() {
+  vendaSelecionada.value = null
+}
 </script>
 
 <template>
@@ -61,14 +80,20 @@ onMounted(async () => {
                 <th>Pagamento</th>
                 <th>Itens</th>
                 <th>Total</th>
+                <th>Detalhes</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="venda in vendas" :key="venda.id">
                 <td>#{{ venda.id }}</td>
-                <td>{{ venda.formaPagamento }}</td>
+                <td>{{ descreverPagamento(venda) }}</td>
                 <td>{{ venda.itens.length }}</td>
                 <td>{{ money.format(venda.total) }}</td>
+                <td>
+                  <button class="icon-button" type="button" @click="abrirDetalhes(venda)" aria-label="Ver detalhes da venda">
+                    <Eye :size="17" />
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -93,4 +118,6 @@ onMounted(async () => {
       </article>
     </div>
   </section>
+
+  <VendaDetalhesModal v-if="vendaSelecionada" :venda="vendaSelecionada" @close="fecharDetalhes" />
 </template>

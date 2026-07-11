@@ -133,4 +133,8 @@ public class Venda {
     public StatusVenda getStatus() {
         return status;
     }
+
+    public void setStatus(StatusVenda status) {
+        this.status = status;
+    }
 }

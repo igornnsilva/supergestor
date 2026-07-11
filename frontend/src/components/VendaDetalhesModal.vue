@@ -64,7 +64,11 @@ function pagamentosDaVenda() {
         </div>
         <div>
           <span>Status</span>
-          <strong>{{ venda.status }}</strong>
+          <strong>
+            <span class="status-pill" :class="{ inactive: venda.status === 'CANCELADA' }">
+              {{ venda.status }}
+            </span>
+          </strong>
         </div>
       </div>
 

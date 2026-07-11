@@ -9,6 +9,7 @@ import com.supergestor.mercado.model.ItemVenda;
 import com.supergestor.mercado.model.MovimentacaoEstoque;
 import com.supergestor.mercado.model.PagamentoVenda;
 import com.supergestor.mercado.model.Produto;
+import com.supergestor.mercado.model.StatusVenda;
 import com.supergestor.mercado.model.TipoMovimentacao;
 import com.supergestor.mercado.model.Usuario;
 import com.supergestor.mercado.model.Venda;
@@ -51,6 +52,33 @@ public class VendaService {
     public Venda buscar(Long id) {
         return vendaRepository.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Venda nao encontrada: " + id));
+    }
+
+    @Transactional
+    public Venda estornar(Long id) {
+        Venda venda = buscar(id);
+        if (venda.getStatus() == StatusVenda.CANCELADA) {
+            throw new IllegalArgumentException("Venda ja esta cancelada.");
+        }
+
+        venda.getItens().forEach(item -> {
+            Produto produto = item.getProduto();
+            produto.setQuantidadeEstoque(produto.getQuantidadeEstoque().add(item.getQuantidade()));
+            movimentacaoRepository.save(new MovimentacaoEstoque(
+                produto,
+                TipoMovimentacao.ENTRADA,
+                item.getQuantidade(),
+                "Estorno da venda #" + venda.getId()
+            ));
+        });
+
+        if (venda.getCliente() != null) {
+            int pontosAposEstorno = venda.getCliente().getPontosFidelidade() - venda.getTotal().intValue();
+            venda.getCliente().setPontosFidelidade(Math.max(0, pontosAposEstorno));
+        }
+
+        venda.setStatus(StatusVenda.CANCELADA);
+        return vendaRepository.save(venda);
     }
 
     @Transactional

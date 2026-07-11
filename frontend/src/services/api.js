@@ -62,5 +62,6 @@ export const estoqueApi = {
 
 export const vendaApi = {
   listar: () => api.get('/vendas').then((response) => response.data),
-  criar: (payload) => api.post('/vendas', payload).then((response) => response.data)
+  criar: (payload) => api.post('/vendas', payload).then((response) => response.data),
+  estornar: (id) => api.post(`/vendas/${id}/estorno`).then((response) => response.data)
 }

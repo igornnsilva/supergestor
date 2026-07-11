@@ -1,6 +1,7 @@
 package com.supergestor.mercado.repository;
 
 import com.supergestor.mercado.model.Venda;
+import com.supergestor.mercado.model.StatusVenda;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -37,10 +38,10 @@ public interface VendaRepository extends JpaRepository<Venda, Long> {
     })
     Optional<Venda> findById(Long id);
 
-    long countByDataVendaBetween(LocalDateTime inicio, LocalDateTime fim);
+    long countByDataVendaBetweenAndStatus(LocalDateTime inicio, LocalDateTime fim, StatusVenda status);
 
     boolean existsByUsuarioId(Long usuarioId);
 
-    @Query("select coalesce(sum(v.total), 0) from Venda v where v.dataVenda between :inicio and :fim")
-    BigDecimal somarTotalEntre(@Param("inicio") LocalDateTime inicio, @Param("fim") LocalDateTime fim);
+    @Query("select coalesce(sum(v.total), 0) from Venda v where v.dataVenda between :inicio and :fim and v.status = :status")
+    BigDecimal somarTotalEntre(@Param("inicio") LocalDateTime inicio, @Param("fim") LocalDateTime fim, @Param("status") StatusVenda status);
 }

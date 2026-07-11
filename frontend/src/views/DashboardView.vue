@@ -80,6 +80,7 @@ function fecharDetalhes() {
                 <th>Pagamento</th>
                 <th>Itens</th>
                 <th>Total</th>
+                <th>Status</th>
                 <th>Detalhes</th>
               </tr>
             </thead>
@@ -89,6 +90,11 @@ function fecharDetalhes() {
                 <td>{{ descreverPagamento(venda) }}</td>
                 <td>{{ venda.itens.length }}</td>
                 <td>{{ money.format(venda.total) }}</td>
+                <td>
+                  <span class="status-pill" :class="{ inactive: venda.status === 'CANCELADA' }">
+                    {{ venda.status }}
+                  </span>
+                </td>
                 <td>
                   <button class="icon-button" type="button" @click="abrirDetalhes(venda)" aria-label="Ver detalhes da venda">
                     <Eye :size="17" />

@@ -37,5 +37,9 @@ public class VendaController {
     Venda finalizar(@Valid @RequestBody VendaRequest request) {
         return vendaService.finalizarVenda(request);
     }
-}
 
+    @PostMapping("/{id}/estorno")
+    Venda estornar(@PathVariable Long id) {
+        return vendaService.estornar(id);
+    }
+}

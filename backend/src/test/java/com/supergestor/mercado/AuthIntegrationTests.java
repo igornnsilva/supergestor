@@ -190,6 +190,62 @@ class AuthIntegrationTests {
     }
 
     @Test
+    void estornoCancelaVendaEDevolveEstoque() throws Exception {
+        String token = loginAdmin().token();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        var produto = produtoRepository.findAll().get(0);
+        var usuario = usuarioRepository.findByEmailIgnoreCase("admin@supergestor.local").orElseThrow();
+        BigDecimal estoqueAntes = produto.getQuantidadeEstoque();
+        BigDecimal quantidadeVendida = BigDecimal.ONE;
+
+        ResponseEntity<String> vendaCriada = restTemplate.postForEntity(
+            "http://localhost:" + port + "/api/vendas",
+            new HttpEntity<>(
+                new VendaRequest(
+                    null,
+                    usuario.getId(),
+                    FormaPagamento.PIX,
+                    BigDecimal.ZERO,
+                    List.of(new VendaItemRequest(produto.getId(), quantidadeVendida)),
+                    List.of(new PagamentoVendaRequest(FormaPagamento.PIX, produto.getPrecoVenda()))
+                ),
+                headers
+            ),
+            String.class
+        );
+
+        assertThat(vendaCriada.getStatusCode())
+            .as("body: " + vendaCriada.getBody())
+            .isEqualTo(HttpStatus.OK);
+        Long vendaId = objectMapper.readTree(vendaCriada.getBody()).get("id").asLong();
+        assertThat(produtoRepository.findById(produto.getId()).orElseThrow().getQuantidadeEstoque())
+            .isEqualByComparingTo(estoqueAntes.subtract(quantidadeVendida));
+
+        ResponseEntity<String> estorno = restTemplate.postForEntity(
+            "http://localhost:" + port + "/api/vendas/" + vendaId + "/estorno",
+            new HttpEntity<>(headers),
+            String.class
+        );
+
+        assertThat(estorno.getStatusCode())
+            .as("body: " + estorno.getBody())
+            .isEqualTo(HttpStatus.OK);
+        assertThat(estorno.getBody()).contains("\"status\":\"CANCELADA\"");
+        assertThat(produtoRepository.findById(produto.getId()).orElseThrow().getQuantidadeEstoque())
+            .isEqualByComparingTo(estoqueAntes);
+
+        ResponseEntity<String> segundoEstorno = restTemplate.postForEntity(
+            "http://localhost:" + port + "/api/vendas/" + vendaId + "/estorno",
+            new HttpEntity<>(headers),
+            String.class
+        );
+
+        assertThat(segundoEstorno.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(segundoEstorno.getBody()).contains("Venda ja esta cancelada.");
+    }
+
+    @Test
     void vendaRejeitaPagamentosQuandoSomaNaoFecha() throws Exception {
         String token = loginAdmin().token();
         HttpHeaders headers = new HttpHeaders();

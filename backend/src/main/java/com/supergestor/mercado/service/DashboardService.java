@@ -1,6 +1,7 @@
 package com.supergestor.mercado.service;
 
 import com.supergestor.mercado.dto.ResumoDashboardResponse;
+import com.supergestor.mercado.model.StatusVenda;
 import com.supergestor.mercado.repository.ClienteRepository;
 import com.supergestor.mercado.repository.ProdutoRepository;
 import com.supergestor.mercado.repository.VendaRepository;
@@ -26,13 +27,12 @@ public class DashboardService {
         LocalDate hoje = LocalDate.now();
         LocalDate primeiroDiaMes = hoje.withDayOfMonth(1);
         return new ResumoDashboardResponse(
-            vendaRepository.somarTotalEntre(hoje.atStartOfDay(), hoje.plusDays(1).atStartOfDay()),
-            vendaRepository.somarTotalEntre(primeiroDiaMes.atStartOfDay(), hoje.plusDays(1).atStartOfDay()),
-            vendaRepository.countByDataVendaBetween(hoje.atStartOfDay(), hoje.plusDays(1).atStartOfDay()),
+            vendaRepository.somarTotalEntre(hoje.atStartOfDay(), hoje.plusDays(1).atStartOfDay(), StatusVenda.FINALIZADA),
+            vendaRepository.somarTotalEntre(primeiroDiaMes.atStartOfDay(), hoje.plusDays(1).atStartOfDay(), StatusVenda.FINALIZADA),
+            vendaRepository.countByDataVendaBetweenAndStatus(hoje.atStartOfDay(), hoje.plusDays(1).atStartOfDay(), StatusVenda.FINALIZADA),
             produtoRepository.count(),
             clienteRepository.count(),
             produtoRepository.buscarProdutosComEstoqueBaixo().size()
         );
     }
 }
-

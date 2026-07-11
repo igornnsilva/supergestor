@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { Eye, Plus, Trash2, WalletCards } from '@lucide/vue'
+import { Eye, RotateCcw, Plus, Trash2, WalletCards } from '@lucide/vue'
 import { cadastroApi, produtoApi, vendaApi } from '../services/api'
 import { useNotificationsStore } from '../stores/notifications'
 import { useAuthStore } from '../stores/auth'
@@ -187,6 +187,21 @@ function abrirDetalhes(venda) {
 
 function fecharDetalhes() {
   vendaSelecionada.value = null
+}
+
+async function estornarVenda(venda) {
+  const confirmou = window.confirm(`Estornar a venda #${venda.id} e devolver os itens ao estoque?`)
+  if (!confirmou) {
+    return
+  }
+
+  try {
+    await vendaApi.estornar(venda.id)
+    notifications.show('Venda estornada e estoque devolvido.')
+    await carregar()
+  } catch (error) {
+    notifications.show(error.response?.data?.detail ?? 'Nao foi possivel estornar a venda.', 'error')
+  }
 }
 
 async function finalizarVenda() {
@@ -390,6 +405,7 @@ onMounted(carregar)
               <th>Pagamento</th>
               <th>Itens</th>
               <th>Total</th>
+              <th>Status</th>
               <th>Detalhes</th>
             </tr>
           </thead>
@@ -400,9 +416,25 @@ onMounted(carregar)
               <td>{{ venda.itens.length }}</td>
               <td>{{ money.format(venda.total) }}</td>
               <td>
-                <button class="icon-button" type="button" @click="abrirDetalhes(venda)" aria-label="Ver detalhes da venda">
-                  <Eye :size="17" />
-                </button>
+                <span class="status-pill" :class="{ inactive: venda.status === 'CANCELADA' }">
+                  {{ venda.status }}
+                </span>
+              </td>
+              <td>
+                <div class="table-actions">
+                  <button class="icon-button" type="button" @click="abrirDetalhes(venda)" aria-label="Ver detalhes da venda">
+                    <Eye :size="17" />
+                  </button>
+                  <button
+                    class="icon-button danger-icon"
+                    type="button"
+                    :disabled="venda.status === 'CANCELADA'"
+                    @click="estornarVenda(venda)"
+                    aria-label="Estornar venda"
+                  >
+                    <RotateCcw :size="17" />
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>

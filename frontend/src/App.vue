@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { Boxes, ChartNoAxesCombined, LogOut, PackageSearch, ShoppingCart } from '@lucide/vue'
+import { Boxes, ChartNoAxesCombined, LogOut, PackageSearch, ShoppingCart, UsersRound } from '@lucide/vue'
 import { useNotificationsStore } from './stores/notifications'
 import { useAuthStore } from './stores/auth'
 
@@ -10,14 +10,16 @@ const router = useRouter()
 const notifications = useNotificationsStore()
 const auth = useAuthStore()
 
-const navItems = [
+const allNavItems = [
   { to: '/', label: 'Dashboard', icon: ChartNoAxesCombined },
   { to: '/produtos', label: 'Produtos', icon: PackageSearch },
   { to: '/estoque', label: 'Estoque', icon: Boxes },
-  { to: '/vendas', label: 'Vendas', icon: ShoppingCart }
+  { to: '/vendas', label: 'Vendas', icon: ShoppingCart },
+  { to: '/usuarios', label: 'Usuarios', icon: UsersRound, roles: ['ADMIN'] }
 ]
 
-const currentTitle = computed(() => navItems.find((item) => item.to === route.path)?.label ?? 'SuperGestor')
+const navItems = computed(() => allNavItems.filter((item) => !item.roles || item.roles.includes(auth.user?.papel)))
+const currentTitle = computed(() => navItems.value.find((item) => item.to === route.path)?.label ?? 'SuperGestor')
 const isLoginRoute = computed(() => route.name === 'login')
 
 function logout() {

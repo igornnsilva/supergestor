@@ -39,6 +39,8 @@ public interface VendaRepository extends JpaRepository<Venda, Long> {
 
     long countByDataVendaBetween(LocalDateTime inicio, LocalDateTime fim);
 
+    boolean existsByUsuarioId(Long usuarioId);
+
     @Query("select coalesce(sum(v.total), 0) from Venda v where v.dataVenda between :inicio and :fim")
     BigDecimal somarTotalEntre(@Param("inicio") LocalDateTime inicio, @Param("fim") LocalDateTime fim);
 }

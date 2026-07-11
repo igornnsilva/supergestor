@@ -47,6 +47,13 @@ export const cadastroApi = {
   usuarios: () => api.get('/usuarios').then((response) => response.data)
 }
 
+export const usuarioApi = {
+  listar: () => api.get('/usuarios').then((response) => response.data),
+  criar: (payload) => api.post('/usuarios', payload).then((response) => response.data),
+  atualizar: (id, payload) => api.put(`/usuarios/${id}`, payload).then((response) => response.data),
+  excluir: (id) => api.delete(`/usuarios/${id}`)
+}
+
 export const estoqueApi = {
   baixo: () => api.get('/estoque/baixo').then((response) => response.data),
   movimentacoes: () => api.get('/estoque/movimentacoes').then((response) => response.data),

@@ -8,9 +8,8 @@ import jakarta.validation.constraints.NotNull;
 public record UsuarioRequest(
     @NotBlank String nome,
     @Email @NotBlank String email,
-    @NotBlank String senha,
+    String senha,
     @NotNull PapelUsuario papel,
     boolean ativo
 ) {
 }
-

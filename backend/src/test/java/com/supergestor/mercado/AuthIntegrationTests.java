@@ -4,10 +4,12 @@ import com.supergestor.mercado.dto.LoginRequest;
 import com.supergestor.mercado.dto.LoginResponse;
 import com.supergestor.mercado.dto.PagamentoVendaRequest;
 import com.supergestor.mercado.dto.ProdutoRequest;
+import com.supergestor.mercado.dto.UsuarioRequest;
 import com.supergestor.mercado.dto.VendaItemRequest;
 import com.supergestor.mercado.dto.VendaRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.supergestor.mercado.model.FormaPagamento;
+import com.supergestor.mercado.model.PapelUsuario;
 import com.supergestor.mercado.model.UnidadeMedida;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -306,6 +308,80 @@ class AuthIntegrationTests {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).contains("Produto possui vendas registradas");
         assertThat(produtoRepository.existsById(produtoVendido.getId())).isTrue();
+    }
+
+    @Test
+    void usuarioPodeSerCriadoEditadoAutenticarComNovaSenhaEExcluido() throws Exception {
+        String token = loginAdmin().token();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+
+        ResponseEntity<String> criado = restTemplate.postForEntity(
+            "http://localhost:" + port + "/api/usuarios",
+            new HttpEntity<>(
+                new UsuarioRequest("Operador Temporario", "temp@supergestor.local", "123456", PapelUsuario.CAIXA, true),
+                headers
+            ),
+            String.class
+        );
+
+        assertThat(criado.getStatusCode())
+            .as("body: " + criado.getBody())
+            .isEqualTo(HttpStatus.OK);
+        Long usuarioId = objectMapper.readTree(criado.getBody()).get("id").asLong();
+
+        ResponseEntity<String> atualizado = restTemplate.exchange(
+            "http://localhost:" + port + "/api/usuarios/" + usuarioId,
+            org.springframework.http.HttpMethod.PUT,
+            new HttpEntity<>(
+                new UsuarioRequest("Operador Editado", "temp.editado@supergestor.local", "654321", PapelUsuario.ESTOQUISTA, true),
+                headers
+            ),
+            String.class
+        );
+
+        assertThat(atualizado.getStatusCode())
+            .as("body: " + atualizado.getBody())
+            .isEqualTo(HttpStatus.OK);
+
+        ResponseEntity<String> loginEditado = restTemplate.postForEntity(
+            "http://localhost:" + port + "/api/auth/login",
+            new LoginRequest("temp.editado@supergestor.local", "654321"),
+            String.class
+        );
+
+        assertThat(loginEditado.getStatusCode())
+            .as("body: " + loginEditado.getBody())
+            .isEqualTo(HttpStatus.OK);
+
+        ResponseEntity<String> excluido = restTemplate.exchange(
+            "http://localhost:" + port + "/api/usuarios/" + usuarioId,
+            org.springframework.http.HttpMethod.DELETE,
+            new HttpEntity<>(headers),
+            String.class
+        );
+
+        assertThat(excluido.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(usuarioRepository.existsById(usuarioId)).isFalse();
+    }
+
+    @Test
+    void usuarioComVendaNaoPodeSerExcluidoParaPreservarHistorico() throws Exception {
+        String token = loginAdmin().token();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        var caixa = usuarioRepository.findByEmailIgnoreCase("caixa@supergestor.local").orElseThrow();
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            "http://localhost:" + port + "/api/usuarios/" + caixa.getId(),
+            org.springframework.http.HttpMethod.DELETE,
+            new HttpEntity<>(headers),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("Usuario possui vendas vinculadas");
+        assertThat(usuarioRepository.existsById(caixa.getId())).isTrue();
     }
 
     private LoginResponse loginAdmin() throws Exception {

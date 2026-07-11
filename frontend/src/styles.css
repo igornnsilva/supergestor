@@ -134,6 +134,23 @@ h1 {
   white-space: nowrap;
 }
 
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 0 10px;
+  background: #e7f4ec;
+  color: #1b6b45;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.status-pill.inactive {
+  background: #f1e4df;
+  color: #9a321f;
+}
+
 .session-actions {
   display: flex;
   align-items: center;
@@ -153,6 +170,11 @@ h1 {
 .icon-button.danger-icon {
   background: #f1e4df;
   color: #9a321f;
+}
+
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .grid {

@@ -162,6 +162,76 @@ class AuthIntegrationTests {
     }
 
     @Test
+    void vendaAceitaPagamentosMisturadosComDescontoQuandoSomaFecha() throws Exception {
+        String token = loginAdmin().token();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        var produto = produtoRepository.findAll().get(0);
+        var usuario = usuarioRepository.findByEmailIgnoreCase("admin@supergestor.local").orElseThrow();
+        BigDecimal desconto = new BigDecimal("1.50");
+        BigDecimal totalComDesconto = produto.getPrecoVenda().subtract(desconto);
+        BigDecimal primeiraParcela = new BigDecimal("10.00");
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+            "http://localhost:" + port + "/api/vendas",
+            new HttpEntity<>(
+                new VendaRequest(
+                    null,
+                    usuario.getId(),
+                    FormaPagamento.DINHEIRO,
+                    desconto,
+                    List.of(new VendaItemRequest(produto.getId(), BigDecimal.ONE)),
+                    List.of(
+                        new PagamentoVendaRequest(FormaPagamento.DINHEIRO, primeiraParcela),
+                        new PagamentoVendaRequest(FormaPagamento.PIX, totalComDesconto.subtract(primeiraParcela))
+                    )
+                ),
+                headers
+            ),
+            String.class
+        );
+
+        assertThat(response.getStatusCode())
+            .as("body: " + response.getBody())
+            .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).contains("\"formaPagamento\":\"MISTO\"");
+        assertThat(response.getBody()).contains("\"desconto\":1.50");
+    }
+
+    @Test
+    void vendaRejeitaFormaPagamentoRepetida() throws Exception {
+        String token = loginAdmin().token();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        var produto = produtoRepository.findAll().get(0);
+        var usuario = usuarioRepository.findByEmailIgnoreCase("admin@supergestor.local").orElseThrow();
+        BigDecimal total = produto.getPrecoVenda();
+        BigDecimal primeiraParcela = total.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+            "http://localhost:" + port + "/api/vendas",
+            new HttpEntity<>(
+                new VendaRequest(
+                    null,
+                    usuario.getId(),
+                    FormaPagamento.PIX,
+                    BigDecimal.ZERO,
+                    List.of(new VendaItemRequest(produto.getId(), BigDecimal.ONE)),
+                    List.of(
+                        new PagamentoVendaRequest(FormaPagamento.PIX, primeiraParcela),
+                        new PagamentoVendaRequest(FormaPagamento.PIX, total.subtract(primeiraParcela))
+                    )
+                ),
+                headers
+            ),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("Nao repita a mesma forma de pagamento na venda.");
+    }
+
+    @Test
     void vendaRejeitaQuantidadeDecimal() throws Exception {
         String token = loginAdmin().token();
         HttpHeaders headers = new HttpHeaders();

@@ -24,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class VendaService {
@@ -145,7 +147,14 @@ public class VendaService {
         }
 
         BigDecimal somaPagamentos = BigDecimal.ZERO;
+        Set<FormaPagamento> formasUsadas = EnumSet.noneOf(FormaPagamento.class);
         for (var pagamentoRequest : pagamentos) {
+            if (pagamentoRequest.formaPagamento() == FormaPagamento.MISTO) {
+                throw new IllegalArgumentException("MISTO nao e uma forma de pagamento direta.");
+            }
+            if (!formasUsadas.add(pagamentoRequest.formaPagamento())) {
+                throw new IllegalArgumentException("Nao repita a mesma forma de pagamento na venda.");
+            }
             BigDecimal valor = normalizarMoeda(pagamentoRequest.valor());
             if (valor.signum() <= 0) {
                 throw new IllegalArgumentException("Valor do pagamento deve ser maior que zero.");

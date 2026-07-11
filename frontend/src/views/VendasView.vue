@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { Eye, RotateCcw, Plus, Trash2, WalletCards } from '@lucide/vue'
 import { cadastroApi, produtoApi, vendaApi } from '../services/api'
 import { useNotificationsStore } from '../stores/notifications'
@@ -51,6 +51,7 @@ const pagamentosValidos = computed(() =>
   itens.value.length > 0 &&
   pagamentos.value.length > 0 &&
   pagamentos.value.every((pagamento) => pagamento.formaPagamento && parseDecimal(pagamento.valor) > 0) &&
+  new Set(pagamentos.value.map((pagamento) => pagamento.formaPagamento)).size === pagamentos.value.length &&
   Math.abs(saldoPagamento.value) < 0.005
 )
 
@@ -132,16 +133,38 @@ function removerItem(produtoId) {
   itens.value = itens.value.filter((item) => item.produto.id !== produtoId)
 }
 
+function primeiraFormaDisponivel(pagamentoAtual = null) {
+  return formasPagamento.find((forma) =>
+    !pagamentos.value.some((pagamento) =>
+      pagamento.id !== pagamentoAtual?.id && pagamento.formaPagamento === forma.value
+    )
+  )?.value ?? ''
+}
+
+function formasDisponiveis(pagamentoAtual) {
+  return formasPagamento.filter((forma) =>
+    forma.value === pagamentoAtual.formaPagamento ||
+    !pagamentos.value.some((pagamento) =>
+      pagamento.id !== pagamentoAtual.id && pagamento.formaPagamento === forma.value
+    )
+  )
+}
+
 function criarPagamento(valor = '') {
   pagamentoSequence += 1
   return {
     id: pagamentoSequence,
-    formaPagamento: 'PIX',
+    formaPagamento: primeiraFormaDisponivel(),
     valor
   }
 }
 
 function adicionarPagamento() {
+  if (!primeiraFormaDisponivel()) {
+    notifications.show('Todas as formas de pagamento ja foram adicionadas.', 'error')
+    return
+  }
+
   if (
     pagamentos.value.length === 1 &&
     total.value > 0 &&
@@ -171,6 +194,12 @@ function completarPagamento(pagamento) {
 function resetarPagamentos() {
   pagamentos.value = [criarPagamento()]
 }
+
+watch(total, (novoTotal) => {
+  if (pagamentos.value.length === 1 && pagamentos.value[0].valor) {
+    pagamentos.value[0].valor = toMoneyInput(novoTotal)
+  }
+})
 
 function descreverPagamento(venda) {
   if (venda.pagamentos?.length) {
@@ -339,7 +368,7 @@ onMounted(carregar)
         <section class="payment-box">
           <div class="toolbar compact">
             <h3>Pagamentos</h3>
-            <button class="button secondary" type="button" @click="adicionarPagamento">
+            <button class="button secondary" type="button" :disabled="pagamentos.length >= formasPagamento.length" @click="adicionarPagamento">
               <Plus :size="17" />
               Adicionar pagamento
             </button>
@@ -350,7 +379,7 @@ onMounted(carregar)
               <label>
                 Forma
                 <select v-model="pagamento.formaPagamento">
-                  <option v-for="forma in formasPagamento" :key="forma.value" :value="forma.value">
+                  <option v-for="forma in formasDisponiveis(pagamento)" :key="forma.value" :value="forma.value">
                     {{ forma.label }}
                   </option>
                 </select>
